@@ -39,8 +39,7 @@ dcopy -v   查看当前黑白名单和配置路径
 
 ---
 🍓简易使用
-
-
+<img width="1051" height="81" alt="a95415a9-5e42-4456-9819-12a348d0d700" src="https://github.com/user-attachments/assets/cb82a075-f253-4311-83d8-a4f24b5d8b39" />
 
 直接在文件路径输入dcopy即可以当前文件夹为根路径进行复制
 
