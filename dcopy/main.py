@@ -47,7 +47,7 @@ def can_read(filepath, blacklist, whitelist):
         return False
     return True
 
-def generate_content(root, blacklist, whitelist):
+def generate_content(root, blacklist, whitelist, names_only=False):
     lines = []
     root_name = os.path.basename(os.path.abspath(root))
     lines.append(f"{root_name} 📂")
@@ -64,7 +64,7 @@ def generate_content(root, blacklist, whitelist):
             rel = os.path.relpath(full, root)
             lines.append(f"{indent}{f}")
 
-            if can_read(full, blacklist, whitelist):
+            if not names_only and can_read(full, blacklist, whitelist):
                 try:
                     with open(full, "r", encoding="utf-8") as fobj:
                         content = fobj.read()
@@ -81,6 +81,7 @@ def run():
     if len(sys.argv) > 1 and sys.argv[1] in ("help", "-help", "--help"):
         print("=== dcopy 使用说明 ===")
         print("dcopy              复制当前目录结构+文本到剪贴板")
+        print("dcopy -n           仅复制目录结构和文件名称(不读取文件内容)")
         print("dcopy -b 后缀      将后缀加入黑名单(后缀请勿带.)")
         print("dcopy -w 后缀      将后缀加入白名单")
         print("dcopy -v           查看当前黑白名单")
@@ -90,6 +91,7 @@ def run():
     parser.add_argument("-b", nargs="+", help="添加到黑名单")
     parser.add_argument("-w", nargs="+", help="添加到白名单")
     parser.add_argument("-v", "--view", action="store_true", help="查看当前黑白名单")
+    parser.add_argument("-n", action="store_true", help="仅复制目录结构和文件名称(不读取文件内容)")
     args = parser.parse_args()
 
     black, white = load_config()
@@ -131,9 +133,12 @@ def run():
         save_config(black, white)
         return
 
-    content = generate_content(os.getcwd(), black, white)
+    content = generate_content(os.getcwd(), black, white, names_only=args.n)
     pyperclip.copy(content)
-    print("\n📋 已复制到剪贴板！\n")
+    if args.n:
+        print("\n📋 已复制目录结构及文件名称到剪贴板！\n")
+    else:
+        print("\n📋 已复制到剪贴板！\n")
 
 if __name__ == "__main__":
     run()
