@@ -3,6 +3,7 @@ import json
 import argparse
 import pyperclip
 import sys
+import subprocess
 
 # ===================== 核心配置 =====================
 DEFAULT_BLACKLIST = {
@@ -77,6 +78,44 @@ def generate_content(root, blacklist, whitelist, names_only=False):
                     lines.append("")
     return "\n".join(lines)
 
+def update_project():
+    """更新项目到最新版本"""
+    try:
+        print("\n🔄 正在检查更新...")
+        # 获取当前脚本所在目录
+        project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        
+        # 检查是否是 git 仓库
+        if not os.path.exists(os.path.join(project_dir, ".git")):
+            print("❌ 错误：当前安装不是通过 git clone 安装的，无法自动更新")
+            print("💡 建议：请重新通过 git clone 安装以支持自动更新功能")
+            return
+        
+        # 执行 git pull
+        print("📥 正在从远程仓库拉取最新代码...")
+        result = subprocess.run(
+            ["git", "pull"],
+            cwd=project_dir,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        
+        if result.returncode == 0:
+            if "Already up to date" in result.stdout or "已经是最新的" in result.stdout:
+                print("✅ 当前已是最新版本！")
+            else:
+                print("✅ 更新成功！")
+                print(result.stdout)
+                print("\n💡 提示：如果更新了依赖，请运行 'pip install -e .' 重新安装")
+        else:
+            print(f"❌ 更新失败：{result.stderr}")
+            
+    except subprocess.TimeoutExpired:
+        print("❌ 更新超时，请检查网络连接")
+    except Exception as e:
+        print(f"❌ 更新出错：{str(e)}")
+
 def run():
     if len(sys.argv) > 1 and sys.argv[1] in ("help", "-help", "--help"):
         print("=== dcopy 使用说明 ===")
@@ -85,6 +124,7 @@ def run():
         print("dcopy -b 后缀      将后缀加入黑名单(后缀请勿带.)")
         print("dcopy -w 后缀      将后缀加入白名单")
         print("dcopy -v           查看当前黑白名单")
+        print("dcopy -u           更新到最新版本")
         print("dcopy help         查看帮助")
         return
     parser = argparse.ArgumentParser(description="dcopy - 目录结构复制到剪贴板")
@@ -92,9 +132,15 @@ def run():
     parser.add_argument("-w", nargs="+", help="添加到白名单")
     parser.add_argument("-v", "--view", action="store_true", help="查看当前黑白名单")
     parser.add_argument("-n", action="store_true", help="仅复制目录结构和文件名称(不读取文件内容)")
+    parser.add_argument("-u", "--update", action="store_true", help="更新到最新版本")
     args = parser.parse_args()
 
     black, white = load_config()
+
+    # 处理更新命令
+    if args.update:
+        update_project()
+        return
 
     if args.b or args.w or args.view:
         if args.view:

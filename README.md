@@ -36,6 +36,8 @@ dcopy -b 后缀   将文件后缀加入黑名单(后缀请勿带.)
 dcopy -w 后缀   将文件后缀加入白名单
 
 dcopy -v   查看当前黑白名单和配置路径
+
+dcopy -u   更新到最新版本
 ```
 
 
@@ -51,13 +53,48 @@ dcopy -v   查看当前黑白名单和配置路径
 
 # 🗑️ 卸载方式
 
-#### 卸载全局命令
+#### 1. 卸载全局命令
 
-```
+```bash
 pip uninstall dcopy -y
 ```
 
-#### 或直接删除项目文件夹即可彻底清理
+#### 2. 删除项目文件夹（彻底清理）
 
-- 配置文件存放在 dcopy/dcopy_config.json，删除项目即清空配置
+**注意**：`pip uninstall` 只会卸载全局命令，不会删除 git clone 下载的项目文件夹。
+如需完全清理，请手动删除项目文件夹：
+
+```bash
+# Windows (PowerShell)
+Remove-Item -Recurse -Force <项目文件夹路径>
+
+# Linux/Mac
+rm -rf <项目文件夹路径>
+```
+
+- 配置文件存放在 `dcopy/dcopy_config.json`，删除项目即清空配置
 - 默认已屏蔽图片、压缩包、可执行文件等非文本格式
+
+---
+
+# 🔄 更新方式
+
+#### 自动更新（推荐）
+
+```bash
+dcopy -u
+```
+
+此命令会自动从 GitHub 拉取最新代码。如果更新了依赖，请运行：
+
+```bash
+pip install -e .
+```
+
+#### 手动更新
+
+```bash
+cd <项目文件夹路径>
+git pull
+pip install -e .
+```
