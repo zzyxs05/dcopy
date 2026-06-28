@@ -38,6 +38,16 @@ dcopy -w 后缀   将文件后缀加入白名单
 dcopy -v   查看当前黑白名单和配置路径
 
 dcopy -u   更新到最新版本
+
+dcopy -r 路径   排除指定文件/目录的内容复制(仍显示结构)
+
+             dcopy -r world.py   排除单个文件内容
+             dcopy -r hello      排除目录下所有文件内容
+
+dcopy -R 路径   完全排除指定文件/目录(不显示结构和内容)
+
+             dcopy -R hello      完全排除目录
+             dcopy -R world.py   完全排除单个文件
 ```
 
 

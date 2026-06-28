@@ -40,6 +40,11 @@ def save_config(blacklist, whitelist):
 def get_ext(filename):
     return os.path.splitext(filename)[1][1:].lower()
 
+def has_ext(path):
+    """判断路径是否包含文件后缀"""
+    _, ext = os.path.splitext(path)
+    return bool(ext)
+
 def can_read(filepath, blacklist, whitelist):
     ext = get_ext(filepath)
     if whitelist and ext in whitelist:
@@ -48,24 +53,85 @@ def can_read(filepath, blacklist, whitelist):
         return False
     return True
 
-def generate_content(root, blacklist, whitelist, names_only=False):
+def should_skip_content(filepath, exclude_content):
+    """检查文件是否在排除内容列表中"""
+    if not exclude_content:
+        return False
+    filepath = os.path.normpath(filepath)
+    for exc in exclude_content:
+        exc_norm = os.path.normpath(exc)
+        # 精确匹配文件
+        if filepath == exc_norm:
+            return True
+        # 检查文件是否在排除的目录下
+        if os.path.isdir(exc) and filepath.startswith(exc_norm + os.sep):
+            return True
+    return False
+
+def should_exclude(filepath, exclude_all):
+    """检查文件/目录是否在完全排除列表中"""
+    if not exclude_all:
+        return False
+    filepath = os.path.normpath(filepath)
+    for exc in exclude_all:
+        exc_norm = os.path.normpath(exc)
+        if filepath == exc_norm or filepath.startswith(exc_norm + os.sep):
+            return True
+    return False
+
+def generate_content(root, blacklist, whitelist, names_only=False, exclude_content=None, exclude_all=None):
     lines = []
     root_name = os.path.basename(os.path.abspath(root))
     lines.append(f"{root_name} 📂")
+
+    # 将相对路径转换为绝对路径用于比较
+    def to_abs(path):
+        if os.path.isabs(path):
+            return os.path.normpath(path)
+        return os.path.normpath(os.path.join(root, path))
+    
+    exclude_content_abs = set()
+    if exclude_content:
+        for p in exclude_content:
+            abs_p = to_abs(p)
+            if not has_ext(p) and os.path.isdir(abs_p):
+                # 目录：添加目录本身
+                exclude_content_abs.add(abs_p)
+            else:
+                exclude_content_abs.add(abs_p)
+    
+    exclude_all_abs = set()
+    if exclude_all:
+        for p in exclude_all:
+            exclude_all_abs.add(to_abs(p))
 
     for dirpath, dirnames, filenames in os.walk(root):
         level = dirpath.replace(root, "").count(os.sep)
         indent = "   " * level + "   丨-"
 
+        # 过滤完全排除的目录
+        dirnames_to_show = []
         for d in dirnames:
-            lines.append(f"{indent}{d} 📂")
+            full_dir = os.path.normpath(os.path.join(dirpath, d))
+            if not should_exclude(full_dir, exclude_all_abs):
+                dirnames_to_show.append(d)
+                lines.append(f"{indent}{d} 📂")
+        # 更新 dirnames 以跳过完全排除的目录
+        dirnames[:] = [d for d in dirnames if d in dirnames_to_show]
 
         for f in filenames:
-            full = os.path.join(dirpath, f)
+            full = os.path.normpath(os.path.join(dirpath, f))
             rel = os.path.relpath(full, root)
+            
+            # 完全排除
+            if should_exclude(full, exclude_all_abs):
+                continue
+            
             lines.append(f"{indent}{f}")
 
-            if not names_only and can_read(full, blacklist, whitelist):
+            # 内容排除
+            skip_content = should_skip_content(full, exclude_content_abs)
+            if not names_only and not skip_content and can_read(full, blacklist, whitelist):
                 try:
                     with open(full, "r", encoding="utf-8") as fobj:
                         content = fobj.read()
@@ -125,6 +191,8 @@ def run():
         print("dcopy -w 后缀      将后缀加入白名单")
         print("dcopy -v           查看当前黑白名单")
         print("dcopy -u           更新到最新版本")
+        print("dcopy -r 路径       排除指定文件/目录的内容复制(仍显示结构)")
+        print("dcopy -R 路径       完全排除指定文件/目录(不显示结构和内容)")
         print("dcopy help         查看帮助")
         return
     parser = argparse.ArgumentParser(description="dcopy - 目录结构复制到剪贴板")
@@ -133,6 +201,8 @@ def run():
     parser.add_argument("-v", "--view", action="store_true", help="查看当前黑白名单")
     parser.add_argument("-n", action="store_true", help="仅复制目录结构和文件名称(不读取文件内容)")
     parser.add_argument("-u", "--update", action="store_true", help="更新到最新版本")
+    parser.add_argument("-r", nargs="+", help="排除指定文件/目录的内容复制(仍显示结构)")
+    parser.add_argument("-R", nargs="+", help="完全排除指定文件/目录(不显示结构和内容)")
     args = parser.parse_args()
 
     black, white = load_config()
@@ -179,7 +249,12 @@ def run():
         save_config(black, white)
         return
 
-    content = generate_content(os.getcwd(), black, white, names_only=args.n)
+    content = generate_content(
+        os.getcwd(), black, white,
+        names_only=args.n,
+        exclude_content=args.r,
+        exclude_all=args.R
+    )
     pyperclip.copy(content)
     if args.n:
         print("\n📋 已复制目录结构及文件名称到剪贴板！\n")
