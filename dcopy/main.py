@@ -105,6 +105,10 @@ def generate_content(root, blacklist, whitelist, names_only=False, exclude_conte
         for p in exclude_all:
             exclude_all_abs.add(to_abs(p))
 
+    # 先收集目录结构和需要读取内容的文件
+    structure_lines = []
+    content_files = []
+
     for dirpath, dirnames, filenames in os.walk(root):
         level = dirpath.replace(root, "").count(os.sep)
         indent = "   " * level + "   丨-"
@@ -115,7 +119,7 @@ def generate_content(root, blacklist, whitelist, names_only=False, exclude_conte
             full_dir = os.path.normpath(os.path.join(dirpath, d))
             if not should_exclude(full_dir, exclude_all_abs):
                 dirnames_to_show.append(d)
-                lines.append(f"{indent}{d} 📂")
+                structure_lines.append(f"{indent}{d} 📂")
         # 更新 dirnames 以跳过完全排除的目录
         dirnames[:] = [d for d in dirnames if d in dirnames_to_show]
 
@@ -127,21 +131,34 @@ def generate_content(root, blacklist, whitelist, names_only=False, exclude_conte
             if should_exclude(full, exclude_all_abs):
                 continue
             
-            lines.append(f"{indent}{f}")
+            structure_lines.append(f"{indent}{f}")
 
             # 内容排除
             skip_content = should_skip_content(full, exclude_content_abs)
             if not names_only and not skip_content and can_read(full, blacklist, whitelist):
-                try:
-                    with open(full, "r", encoding="utf-8") as fobj:
-                        content = fobj.read()
-                    lines.append(f"\n{rel}:")
-                    lines.append(content)
-                    lines.append("")
-                except Exception:
-                    lines.append(f"\n{rel}:")
-                    lines.append("[无法读取文件内容]")
-                    lines.append("")
+                content_files.append((full, rel))
+
+    # 先输出目录结构
+    lines.extend(structure_lines)
+
+    # 如果不是仅显示名称，再输出文件内容
+    if not names_only and content_files:
+        lines.append("\n" + "=" * 50)
+        lines.append("📄 文件内容")
+        lines.append("=" * 50)
+        
+        for full, rel in content_files:
+            # 使用斜杠格式的路径
+            rel_path = "/" + rel.replace(os.sep, "/")
+            try:
+                with open(full, "r", encoding="utf-8") as fobj:
+                    content = fobj.read()
+                lines.append(f"\n{rel_path}:")
+                lines.append(content)
+            except Exception:
+                lines.append(f"\n{rel_path}:")
+                lines.append("[无法读取文件内容]")
+
     return "\n".join(lines)
 
 def update_project():
