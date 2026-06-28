@@ -96,7 +96,6 @@ def generate_content(root, blacklist, whitelist, names_only=False, exclude_conte
         for p in exclude_content:
             abs_p = to_abs(p)
             if not has_ext(p) and os.path.isdir(abs_p):
-                # 目录：添加目录本身
                 exclude_content_abs.add(abs_p)
             else:
                 exclude_content_abs.add(abs_p)
@@ -106,46 +105,50 @@ def generate_content(root, blacklist, whitelist, names_only=False, exclude_conte
         for p in exclude_all:
             exclude_all_abs.add(to_abs(p))
 
-    # 先收集目录结构和需要读取内容的文件
-    structure_lines = []
     content_files = []
 
-    for dirpath, dirnames, filenames in os.walk(root):
-        # 计算当前目录相对于根目录的层级
-        rel_dir = os.path.relpath(dirpath, root)
-        if rel_dir == ".":
-            level = 0
-        else:
-            level = rel_dir.count(os.sep) + 1
-        indent = "   " * level + "   丨-"
+    # 默认排除的目录
+    default_exclude = {'.git', '__pycache__', '.vscode', '.idea', 'node_modules'}
 
-        # 过滤完全排除的目录
-        dirnames_to_show = []
-        for d in dirnames:
-            full_dir = os.path.normpath(os.path.join(dirpath, d))
-            if not should_exclude(full_dir, exclude_all_abs):
-                dirnames_to_show.append(d)
-                structure_lines.append(f"{indent}{d} 📂")
-        # 更新 dirnames 以跳过完全排除的目录
-        dirnames[:] = [d for d in dirnames if d in dirnames_to_show]
-
-        for f in filenames:
-            full = os.path.normpath(os.path.join(dirpath, f))
-            rel = os.path.relpath(full, root)
-            
-            # 完全排除
-            if should_exclude(full, exclude_all_abs):
+    def walk_dir(dirpath, level):
+        """递归遍历目录"""
+        try:
+            entries = sorted(os.listdir(dirpath))
+        except PermissionError:
+            return
+        
+        # 过滤默认排除的目录和文件
+        entries = [e for e in entries if e not in default_exclude]
+        
+        # 先处理目录
+        for entry in entries:
+            full_path = os.path.join(dirpath, entry)
+            if not os.path.isdir(full_path):
+                continue
+            if should_exclude(full_path, exclude_all_abs):
                 continue
             
-            structure_lines.append(f"{indent}{f}")
+            indent = "   " * level + "   丨-"
+            lines.append(f"{indent}{entry} 📂")
+            walk_dir(full_path, level + 1)
+        
+        # 再处理文件
+        for entry in entries:
+            full_path = os.path.join(dirpath, entry)
+            if not os.path.isfile(full_path):
+                continue
+            if should_exclude(full_path, exclude_all_abs):
+                continue
+            
+            indent = "   " * level + "   丨-"
+            rel = os.path.relpath(full_path, root)
+            lines.append(f"{indent}{entry}")
+            
+            skip_content = should_skip_content(full_path, exclude_content_abs)
+            if not names_only and not skip_content and can_read(full_path, blacklist, whitelist):
+                content_files.append((full_path, rel))
 
-            # 内容排除
-            skip_content = should_skip_content(full, exclude_content_abs)
-            if not names_only and not skip_content and can_read(full, blacklist, whitelist):
-                content_files.append((full, rel))
-
-    # 先输出目录结构
-    lines.extend(structure_lines)
+    walk_dir(root, 0)
 
     # 如果不是仅显示名称，再输出文件内容
     if not names_only and content_files:
@@ -154,7 +157,6 @@ def generate_content(root, blacklist, whitelist, names_only=False, exclude_conte
         lines.append("=" * 50)
         
         for full, rel in content_files:
-            # 使用斜杠格式的路径
             rel_path = "/" + rel.replace(os.sep, "/")
             try:
                 with open(full, "r", encoding="utf-8") as fobj:

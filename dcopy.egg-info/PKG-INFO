@@ -1,0 +1,7 @@
+Metadata-Version: 2.4
+Name: dcopy
+Version: 1.0.0
+Home-page: https://github.com/zzyxs05/dcopy
+Requires-Dist: pyperclip>=1.8.2
+Dynamic: home-page
+Dynamic: requires-dist
