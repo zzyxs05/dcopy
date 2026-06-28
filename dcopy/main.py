@@ -81,7 +81,8 @@ def should_exclude(filepath, exclude_all):
 
 def generate_content(root, blacklist, whitelist, names_only=False, exclude_content=None, exclude_all=None):
     lines = []
-    root_name = os.path.basename(os.path.abspath(root))
+    root = os.path.abspath(root)
+    root_name = os.path.basename(root)
     lines.append(f"{root_name} 📂")
 
     # 将相对路径转换为绝对路径用于比较
@@ -110,7 +111,12 @@ def generate_content(root, blacklist, whitelist, names_only=False, exclude_conte
     content_files = []
 
     for dirpath, dirnames, filenames in os.walk(root):
-        level = dirpath.replace(root, "").count(os.sep)
+        # 计算当前目录相对于根目录的层级
+        rel_dir = os.path.relpath(dirpath, root)
+        if rel_dir == ".":
+            level = 0
+        else:
+            level = rel_dir.count(os.sep) + 1
         indent = "   " * level + "   丨-"
 
         # 过滤完全排除的目录
